@@ -1,4 +1,4 @@
-FROM alpine:3.12 AS builder
+FROM alpine:3.17 AS builder
 
 # Check required arguments exist. These will be provided by the Github Action
 # Workflow and are required to ensure the correct branches are being used.
@@ -27,7 +27,8 @@ RUN apk -U add \
         xxd \
         libressl-dev \
         openssl-dev \
-        libplist-dev
+        libplist-dev \
+        pulseaudio-dev
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -66,7 +67,7 @@ WORKDIR /
 ##### SPS END #####
 
 # Shairport Sync Runtime System
-FROM crazymax/alpine-s6:3.12-3.1.1.2
+FROM crazymax/alpine-s6:3.17-edge
 
 RUN apk -U add \
         alsa-lib \
@@ -87,7 +88,8 @@ RUN apk -U add \
         mandoc \
         man-pages \
         less \
-        less-doc
+        less-doc \
+        libpulse
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
@@ -101,6 +103,9 @@ COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-
 
 COPY ./docker/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
 RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
+
+# Copy PulseAudio config
+COPY ./docker/etc/pulse /etc/pulse
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
 # Shairport Sync to provide the D-Bus and MPRIS interfaces within the container

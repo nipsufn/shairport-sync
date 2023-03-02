@@ -1,4 +1,4 @@
-FROM alpine:3.12 AS builder
+FROM alpine:3.17 AS builder
 
 # Classic (aka AirPlay 1) Build
 
@@ -21,7 +21,8 @@ RUN apk -U add \
         avahi-dev \
         libconfig-dev \
         mosquitto-dev \
-        libsndfile-dev
+        libsndfile-dev \
+        pulseaudio-dev
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -39,8 +40,8 @@ COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
 WORKDIR /shairport-sync/build
 RUN autoreconf -i ../
-RUN ../configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=mbedtls \
-        --with-metadata --with-dummy --with-pipe --with-dbus-interface \
+RUN ../configure --sysconfdir=/etc --with-alsa --with-pa --with-soxr --with-avahi \
+        --with-ssl=mbedtls --with-metadata --with-dummy --with-pipe --with-dbus-interface \
         --with-stdout --with-mpris-interface --with-mqtt-client \
         --with-apple-alac --with-convolution
 RUN make -j $(nproc)
@@ -49,7 +50,7 @@ WORKDIR /
 ##### SPS END #####
 
 # Shairport Sync Runtime System
-FROM crazymax/alpine-s6:3.12-3.1.1.2
+FROM crazymax/alpine-s6:3.17-edge
 
 RUN apk -U add \
         alsa-lib \
@@ -66,7 +67,8 @@ RUN apk -U add \
         mandoc \
         man-pages \
         less \
-        less-doc
+        less-doc \
+        libpulse
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
@@ -79,6 +81,9 @@ COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-
 
 COPY ./docker/classic/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
 RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
+
+# Copy PulseAudio config
+COPY ./docker/etc/pulse /etc/pulse
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
 # Shairport Sync to provide the D-Bus and MPRIS interfaces within the container
