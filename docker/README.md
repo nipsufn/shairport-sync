@@ -9,7 +9,7 @@ Shairport Sync provides limited AirPlay 2 functionality. Versions with tags incl
 * `rolling` and `rolling-classic` are images of the latest updates in the `master` branch that have not yet been incorporated in a release. These may be updated frequently but should be stable.
 * `development` and `development-classic` are images of the latest pushes to the `development` branch. These will be less stable and may be actually faulty. They will be updated frequently.
 * Version Tags, e.g. `4.1` are images of specific releases.
-* `*-pa` suffix denotes images built with Pulseaudio support instead of default ALSA
+* `*-pa` suffix denotes images built with PulseAudio support instead of default ALSA
 
 
 ## Example Docker Compose File

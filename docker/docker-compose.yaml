@@ -3,10 +3,10 @@
 services:
   shairport-sync:
     image: mikebrady/shairport-sync:latest # With ALSA
-    #image: mikebrady/shairport-sync:latest-pa # With Pulseaudio
+    #image: mikebrady/shairport-sync:latest-pa # With PulseAudio
     network_mode: host
     restart: unless-stopped
-    # For Pulseaudio
+    # For PulseAudio
     #environment:
     #  PULSE_SERVER: unix:/tmp/pulseaudio.socket
     #  PULSE_COOKIE: /tmp/pulseaudio.cookie
@@ -16,8 +16,8 @@ services:
       - "/dev/snd"
     # volumes:
     #   - ../scripts/shairport-sync/shairport-sync.conf:/etc/shairport-sync.conf # Customised Shairport Sync configuration file.
-    #   - /run/user/1000/pulse/native:/tmp/pulseaudio.socket # Pulseaudio: socket
-    #   - ./pulseaudio.client.conf:/etc/pulse/client.conf # Pulseaudio: client-config
+    #   - /run/user/1000/pulse/native:/tmp/pulseaudio.socket # PulseAudio: socket
+    #   - ./pulseaudio.client.conf:/etc/pulse/client.conf # PulseAudio: client-config
     logging:
       options:
         max-size: "200k"
