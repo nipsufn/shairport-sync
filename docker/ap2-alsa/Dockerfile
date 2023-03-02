@@ -1,11 +1,11 @@
 FROM alpine:3.17 AS builder
 
-# Classic (aka AirPlay 1) Build
-
 # Check required arguments exist. These will be provided by the Github Action
 # Workflow and are required to ensure the correct branches are being used.
 ARG SHAIRPORT_SYNC_BRANCH
 RUN test -n "$SHAIRPORT_SYNC_BRANCH"
+ARG NQPTP_BRANCH
+RUN test -n "$NQPTP_BRANCH"
 
 RUN apk -U add \
         git \
@@ -16,13 +16,18 @@ RUN apk -U add \
         dbus \
         alsa-lib-dev \
         popt-dev \
-        mbedtls-dev \
         soxr-dev \
         avahi-dev \
         libconfig-dev \
-        mosquitto-dev \
         libsndfile-dev \
-        pulseaudio-dev
+        mosquitto-dev \
+        libsodium-dev \
+        libgcrypt-dev \
+        ffmpeg-dev \
+        xxd \
+        libressl-dev \
+        openssl-dev \
+        libplist-dev
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -34,14 +39,25 @@ RUN make install
 WORKDIR /
 ##### ALAC END #####
 
+##### NQPTP #####
+RUN git clone https://github.com/mikebrady/nqptp
+WORKDIR /nqptp
+RUN git checkout "$NQPTP_BRANCH"
+RUN autoreconf -i
+RUN ./configure
+RUN make
+RUN make install
+WORKDIR /
+##### NQPTP END #####
+
 ##### SPS #####
 WORKDIR /shairport-sync
 COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
 WORKDIR /shairport-sync/build
 RUN autoreconf -i ../
-RUN ../configure --sysconfdir=/etc --with-alsa --with-pa --with-soxr --with-avahi \
-        --with-ssl=mbedtls --with-metadata --with-dummy --with-pipe --with-dbus-interface \
+RUN ../configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-airplay-2 \
+        --with-metadata --with-dummy --with-pipe --with-dbus-interface \
         --with-stdout --with-mpris-interface --with-mqtt-client \
         --with-apple-alac --with-convolution
 RUN make -j $(nproc)
@@ -57,33 +73,36 @@ RUN apk -U add \
         dbus \
         popt \
         glib \
-        mbedtls \
         soxr \
         avahi \
         avahi-tools \
         libconfig \
+        libsndfile \
         mosquitto \
-        libsndfile-dev \
+        libuuid \
+        ffmpeg \
+        libsodium \
+        libgcrypt \
+        libplist \
         mandoc \
         man-pages \
         less \
-        less-doc \
-        libpulse
+        less-doc
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
 COPY --from=builder /shairport-sync/build/install/usr/local/share/man/man7 /usr/share/man/man7
+COPY --from=builder /usr/local/bin/nqptp /usr/local/bin/nqptp
 COPY --from=builder /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder /shairport-sync/build/install/etc/shairport-sync.conf /etc/
 COPY --from=builder /shairport-sync/build/install/etc/shairport-sync.conf.sample /etc/
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
 
-COPY ./docker/classic/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
+COPY ./docker/reusable/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
+COPY ./docker/reusable/etc/s6-overlay/s6-rc.d-ap2 /etc/s6-overlay/s6-rc.d
 RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
 
-# Copy PulseAudio config
-COPY ./docker/etc/pulse /etc/pulse
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
 # Shairport Sync to provide the D-Bus and MPRIS interfaces within the container

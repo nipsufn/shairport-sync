@@ -58,11 +58,11 @@ jobs:
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
 
-      - name: Build and push (classic)
+      - name: Build and push (classic, alsa)
         uses: docker/build-push-action@v4
         with:
           context: ./
-          file: ./docker/classic/Dockerfile
+          file: ./docker/classic-alsa/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
           tags: |
@@ -71,16 +71,43 @@ jobs:
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
  
-      - name: Build and push
+      - name: Build and push (AirPlay2, alsa)
         uses: docker/build-push-action@v4
         with:
           context: ./
-          file: ./docker/Dockerfile
+          file: ./docker/ap2-alsa/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
           tags: |
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
             ${{ env.LATEST_TAG == 'true' && format('{0}:latest', secrets.DOCKER_IMAGE_NAME) || '' }}
+          build-args: |
+            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
+            NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
+
+      - name: Build and push (classic, pulseaudio)
+        uses: docker/build-push-action@v4
+        with:
+          context: ./
+          file: ./docker/classic-pa/Dockerfile
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-classic-pa
+            ${{ env.LATEST_TAG == 'true' && format('{0}:classic-pa', secrets.DOCKER_IMAGE_NAME) || '' }}
+          build-args: |
+            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
+ 
+      - name: Build and push (AirPlay2, pulseaudio)
+        uses: docker/build-push-action@v4
+        with:
+          context: ./
+          file: ./docker/ap2-pa/Dockerfile
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-pa
+            ${{ env.LATEST_TAG == 'true' && format('{0}:latest-pa', secrets.DOCKER_IMAGE_NAME) || '' }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
             NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
