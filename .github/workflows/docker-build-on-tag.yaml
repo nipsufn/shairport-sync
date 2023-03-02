@@ -53,7 +53,7 @@ jobs:
 
       - name: Login to Docker Registry
         uses: docker/login-action@v2
-        if: ${{ ! contains( "ci/", github.ref ) }}
+        if: ${{ ! contains( 'ci/', github.ref ) }}
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
@@ -65,7 +65,7 @@ jobs:
           context: ./
           file: ./docker/classic-alsa/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: ${{ ! contains( "ci/", github.ref ) }}
+          push: ${{ ! contains( 'ci/', github.ref ) }}
           tags: |
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-classic
             ${{ env.LATEST_TAG == 'true' && format('{0}:classic', secrets.DOCKER_IMAGE_NAME) || '' }}
@@ -78,7 +78,7 @@ jobs:
           context: ./
           file: ./docker/ap2-alsa/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: ${{ ! contains( "ci/", github.ref ) }}
+          push: ${{ ! contains( 'ci/', github.ref ) }}
           tags: |
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
             ${{ env.LATEST_TAG == 'true' && format('{0}:latest', secrets.DOCKER_IMAGE_NAME) || '' }}
@@ -92,7 +92,7 @@ jobs:
           context: ./
           file: ./docker/classic-pa/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: ${{ ! contains( "ci/", github.ref ) }}
+          push: ${{ ! contains( 'ci/', github.ref ) }}
           tags: |
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-classic-pa
             ${{ env.LATEST_TAG == 'true' && format('{0}:classic-pa', secrets.DOCKER_IMAGE_NAME) || '' }}
@@ -105,7 +105,7 @@ jobs:
           context: ./
           file: ./docker/ap2-pa/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: ${{ ! contains( "ci/", github.ref ) }}
+          push: ${{ ! contains( 'ci/', github.ref ) }}
           tags: |
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-pa
             ${{ env.LATEST_TAG == 'true' && format('{0}:latest-pa', secrets.DOCKER_IMAGE_NAME) || '' }}
