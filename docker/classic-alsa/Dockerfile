@@ -8,20 +8,28 @@ ARG SHAIRPORT_SYNC_BRANCH
 RUN test -n "$SHAIRPORT_SYNC_BRANCH"
 
 RUN apk -U add \
-        git \
-        build-base \
+        alsa-lib-dev \
         autoconf \
         automake \
-        libtool \
-        dbus \
-        alsa-lib-dev \
-        popt-dev \
-        mbedtls-dev \
-        soxr-dev \
         avahi-dev \
+        build-base \
+        dbus \
+        ffmpeg-dev \
+        git \
         libconfig-dev \
+        libgcrypt-dev \
+        libplist-dev \
+        libressl-dev \
+        libsndfile-dev \
+        libsodium-dev \
+        libtool \
+        mbedtls-dev \
         mosquitto-dev \
-        libsndfile-dev
+        openssl-dev \
+        popt-dev \
+        pulseaudio-dev \
+        soxr-dev \
+        xxd
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -77,7 +85,7 @@ COPY --from=builder /shairport-sync/build/install/etc/shairport-sync.conf.sample
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
 
-COPY ./docker/classic/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
+COPY ./docker/reusable/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
 RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows

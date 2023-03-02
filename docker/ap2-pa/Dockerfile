@@ -8,26 +8,28 @@ ARG NQPTP_BRANCH
 RUN test -n "$NQPTP_BRANCH"
 
 RUN apk -U add \
-        git \
-        build-base \
+        alsa-lib-dev \
         autoconf \
         automake \
-        libtool \
-        dbus \
-        alsa-lib-dev \
-        popt-dev \
-        soxr-dev \
         avahi-dev \
-        libconfig-dev \
-        libsndfile-dev \
-        mosquitto-dev \
-        libsodium-dev \
-        libgcrypt-dev \
+        build-base \
+        dbus \
         ffmpeg-dev \
-        xxd \
+        git \
+        libconfig-dev \
+        libgcrypt-dev \
+        libplist-dev \
         libressl-dev \
+        libsndfile-dev \
+        libsodium-dev \
+        libtool \
+        mbedtls-dev \
+        mosquitto-dev \
         openssl-dev \
-        libplist-dev
+        popt-dev \
+        pulseaudio-dev \
+        soxr-dev \
+        xxd
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -56,7 +58,7 @@ COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
 WORKDIR /shairport-sync/build
 RUN autoreconf -i ../
-RUN ../configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-airplay-2 \
+RUN ../configure --sysconfdir=/etc --with-pa --with-soxr --with-avahi --with-ssl=openssl --with-airplay-2 \
         --with-metadata --with-dummy --with-pipe --with-dbus-interface \
         --with-stdout --with-mpris-interface --with-mqtt-client \
         --with-apple-alac --with-convolution
@@ -87,7 +89,8 @@ RUN apk -U add \
         mandoc \
         man-pages \
         less \
-        less-doc
+        less-doc \
+        libpulse
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
@@ -99,8 +102,12 @@ COPY --from=builder /shairport-sync/build/install/etc/shairport-sync.conf.sample
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
 
-COPY ./docker/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
+COPY ./docker/reusable/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
+COPY ./docker/reusable/etc/s6-overlay/s6-rc.d-ap2 /etc/s6-overlay/s6-rc.d
 RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
+
+# Copy PulseAudio config
+COPY ./docker/reusable/etc/pulse /etc/pulse
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
 # Shairport Sync to provide the D-Bus and MPRIS interfaces within the container

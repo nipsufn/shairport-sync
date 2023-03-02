@@ -15,36 +15,67 @@ on:
       - '[0-9]+\.[0-9]+\.[0-9]+' # X.Y.Z
 
 env:
-  DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
-  NQPTP_BRANCH: main
+  DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
 
 jobs:
-  main:
+  prep:
     runs-on: ubuntu-latest
+    outputs:
+      shairport-sync-branch: ${{ steps.shairport-sync-branch.outputs.SHAIRPORT_SYNC_BRANCH }}
+      latest-tag: ${{ steps.latest-tag.outputs.LATEST_TAG }}
+      nqptp-branch: ${{ steps.image-tag-base-development.outputs.NQPTP_BRANCH || 'main' }}
+      tag: ${{ steps.git-tag.outputs.GIT_TAG }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
       - name: Set SHAIRPORT_SYNC_BRANCH env.
+        id: shairport-sync-branch
         run: |
           raw=$(git branch -r --contains ${{ github.ref }})
           branch=${raw##*/}
-          echo "SHAIRPORT_SYNC_BRANCH=${branch}" >> $GITHUB_ENV
+          echo "SHAIRPORT_SYNC_BRANCH=${branch}" >> $GITHUB_OUTPUT
 
       - name: Set tag env
-        run: echo "GIT_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+        id: git-tag
+        run: |
+          echo "GIT_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Is branch "master"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'master' }}
-        run: echo "LATEST_TAG=true" >> $GITHUB_ENV
+        id: latest-tag
+        run: |
+          echo "LATEST_TAG=true" >> $GITHUB_OUTPUT
 
       - name: Is branch "development"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
+        id: image-tag-base-development
         run: |
-          echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
-        
+          echo "NQPTP_BRANCH=development" >> $GITHUB_OUTPUT
+
+  main:
+    needs:
+      - prep
+    strategy:
+      matrix:
+        image:
+          - name: Build and push (classic, ALSA)
+            file: './docker/classic-alsa/Dockerfile'
+            tag-suffix: -classic
+          - name: Build and push (AirPlay2, ALSA)
+            file: './docker/ap2-alsa/Dockerfile'
+            tag-suffix: 
+          - name: Build and push (classic, PulseAudio)
+            file: './docker/classic-pa/Dockerfile'
+            tag-suffix: -classic-pa
+          - name: Build and push (AirPlay2, PulseAudio)
+            file: './docker/ap2-pa/Dockerfile'
+            tag-suffix: -pa
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -58,29 +89,16 @@ jobs:
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
 
-      - name: Build and push (classic)
-        uses: docker/build-push-action@v2
+      - name: ${{ matrix.image.name }}
+        uses: docker/build-push-action@v4
         with:
           context: ./
-          file: ./docker/classic/Dockerfile
+          file: "${{ matrix.image.file }}"
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
           tags: |
-            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-classic
-            ${{ env.LATEST_TAG == 'true' && format('{0}:classic', secrets.DOCKER_IMAGE_NAME) || '' }}
+            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ needs.prep.outputs.tag }}${{ matrix.image.tag-suffix }}
+            ${{ needs.prep.outputs.latest-tag == 'true' && format('{0}:{1}', secrets.DOCKER_IMAGE_NAME, matrix.image.tag-suffix) || '' }}
           build-args: |
-            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
- 
-      - name: Build and push
-        uses: docker/build-push-action@v2
-        with:
-          context: ./
-          file: ./docker/Dockerfile
-          platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
-            ${{ env.LATEST_TAG == 'true' && format('{0}:latest', secrets.DOCKER_IMAGE_NAME) || '' }}
-          build-args: |
-            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
-            NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
+            SHAIRPORT_SYNC_BRANCH=${{ needs.prep.outputs.shairport-sync-branch }}
+            NQPTP_BRANCH=${{ needs.prep.outputs.nqptp-branch }}

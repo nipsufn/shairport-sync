@@ -11,66 +11,90 @@ on:
     branches:
       - master
       - development
+      - ci/**
 
 env:
   DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
-  NQPTP_BRANCH: main
 
 jobs:
-  main:
+  prep:
     runs-on: ubuntu-latest
+    outputs:
+      shairport-sync-branch: ${{ steps.shairport-sync-branch.outputs.SHAIRPORT_SYNC_BRANCH }}
+      image-tag-base: ${{ steps.image-tag-base-master.outputs.IMAGE_TAG_BASE || steps.image-tag-base-development.outputs.IMAGE_TAG_BASE || steps.image-tag-base-ci.outputs.IMAGE_TAG_BASE }}
+      nqptp-branch: ${{ steps.image-tag-base-development.outputs.NQPTP_BRANCH || 'main' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
       - name: Set SHAIRPORT_SYNC_BRANCH env.
-        run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+        id: shairport-sync-branch
+        run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF}" >> $GITHUB_OUTPUT
 
       - name: Is branch "master"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'master' }}
+        id: image-tag-base-master
         run: |
-          echo "IMAGE_TAG_BASE=rolling" >> $GITHUB_ENV
+          echo "IMAGE_TAG_BASE=rolling" >> $GITHUB_OUTPUT
 
       - name: Is branch "development"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
+        id: image-tag-base-development
         run: |
-          echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
-          echo "IMAGE_TAG_BASE=development" >> $GITHUB_ENV
+          echo "NQPTP_BRANCH=development" >> $GITHUB_OUTPUT
+          echo "IMAGE_TAG_BASE=development" >> $GITHUB_OUTPUT
+
+      - name: Is branch "ci/**"?
+        if: ${{ contains( github.ref, 'ci/' ) }}
+        id: image-tag-base-ci
+        run: |
+          echo "IMAGE_TAG_BASE=ci" >> $GITHUB_OUTPUT
+
+  main:
+    needs:
+      - prep
+    strategy:
+      matrix:
+        image:
+          - name: Build and push (classic, ALSA)
+            file: './docker/classic-alsa/Dockerfile'
+            tag-suffix: -classic
+          - name: Build and push (AirPlay2, ALSA)
+            file: './docker/ap2-alsa/Dockerfile'
+            tag-suffix: 
+          - name: Build and push (classic, PulseAudio)
+            file: './docker/classic-pa/Dockerfile'
+            tag-suffix: -classic-pa
+          - name: Build and push (AirPlay2, PulseAudio)
+            file: './docker/ap2-pa/Dockerfile'
+            tag-suffix: -pa
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
 
       - name: Login to Docker Registry
-        uses: docker/login-action@v1
+        if: ${{ !contains( github.ref, 'ci/' ) }}
+        uses: docker/login-action@v2
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
 
-      - name: Build and push (classic)
-        uses: docker/build-push-action@v2
+      - name: ${{ matrix.image.name }}
+        uses: docker/build-push-action@v4
         with:
           context: ./
-          file: ./docker/classic/Dockerfile
+          file: "${{ matrix.image.file }}"
           platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: ${{ env.IMAGE_TAG_BASE != '' }}
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}-classic
+          push: ${{ needs.prep.outputs.image-tag-base != ''  && !contains( github.ref, 'ci/' ) }}
+          tags: ${{ secrets.DOCKER_IMAGE_NAME || 'shairport-sync' }}:${{ needs.prep.outputs.image-tag-base }}${{ matrix.image.tag-suffix }}
           build-args: |
-            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
- 
-      - name: Build and push
-        uses: docker/build-push-action@v2
-        with:
-          context: ./
-          file: ./docker/Dockerfile
-          platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: ${{ env.IMAGE_TAG_BASE != '' }}
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}
-          build-args: |
-            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
-            NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
+            SHAIRPORT_SYNC_BRANCH=${{ needs.prep.outputs.shairport-sync-branch }}
+            NQPTP_BRANCH=${{ needs.prep.outputs.nqptp-branch }}
